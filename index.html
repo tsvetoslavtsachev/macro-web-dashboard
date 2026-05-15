@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Macro Dashboard — САЩ & Еврозона</title>
+<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+<style>
+/* ═══════════════════════════════════════════════
+   DESIGN TOKENS
+═══════════════════════════════════════════════ */
+:root {
+  --bg:        #0d1117;
+  --surface:   #161b22;
+  --surface2:  #1c2128;
+  --border:    #30363d;
+  --text:      #e6edf3;
+  --muted:     #8b949e;
+  --accent:    #58a6ff;
+  --green:     #3fb950;
+  --red:       #f85149;
+  --yellow:    #d29922;
+  --orange:    #f0883e;
+  --purple:    #bc8cff;
+  --radius:    8px;
+  --font:      'Inter', system-ui, -apple-system, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  min-height: 100vh;
+}
+
+/* ═══════════════════════════════════════════════
+   STICKY HEADER
+═══════════════════════════════════════════════ */
+#sticky-header {
+  position: sticky; top: 0; z-index: 200;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+nav {
+  display: flex; align-items: center; gap: 6px;
+  padding: 10px 20px; flex-wrap: wrap;
+}
+.logo {
+  font-weight: 700; font-size: 15px;
+  color: var(--accent); margin-right: 12px;
+  white-space: nowrap; letter-spacing: -0.3px;
+}
+.logo span { color: var(--muted); font-weight: 400; }
+.region-tabs { display: flex; gap: 4px; }
+.region-tab {
+  background: none; border: 1px solid var(--border);
+  color: var(--muted); padding: 5px 14px;
+  border-radius: 20px; cursor: pointer;
+  font-size: 12px; font-weight: 600;
+  transition: all .15s;
+}
+.region-tab.active {
+  background: var(--accent); border-color: var(--accent);
+  color: #fff;
+}
+.region-tab:hover:not(.active) {
+  border-color: var(--accent); color: var(--accent);
+}
+.spacer { flex: 1; }
+#last-update {
+  font-size: 11px; color: var(--muted); white-space: nowrap;
+}
+.refresh-btn {
+  background: none; border: 1px solid var(--border);
+  color: var(--muted); padding: 5px 10px;
+  border-radius: 6px; cursor: pointer; font-size: 11px;
+  transition: all .15s;
+}
+.refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ═══════════════════════════════════════════════
+   REGIME BANNER
+═══════════════════════════════════════════════ */
+#regime-banner {
+  padding: 10px 20px;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  display: none;
+}
+#regime-banner.visible { display: block; }
+.regime-inner {
+  display: flex; align-items: flex-start;
+  gap: 14px; flex-wrap: wrap;
+}
+.regime-badge {
+  padding: 4px 14px; border-radius: 20px;
+  font-weight: 700; font-size: 12px;
+  white-space: nowrap; flex-shrink: 0;
+}
+.regime-expansion    { background: #0d2b1a; color: #3fb950; border: 1px solid #1f4d2a; }
+.regime-soft-landing { background: #0d2b1a; color: #3fb950; border: 1px solid #1f4d2a; }
+.regime-transition   { background: #2b2200; color: #d29922; border: 1px solid #4d3d00; }
+.regime-slowdown     { background: #2b1500; color: #f0883e; border: 1px solid #4d2800; }
+.regime-stagflation  { background: #2b0d0d; color: #f85149; border: 1px solid #4d1a1a; }
+.regime-policy-dilemma { background: #2b0d0d; color: #f85149; border: 1px solid #4d1a1a; }
+.regime-default      { background: #1c2128; color: var(--muted); border: 1px solid var(--border); }
+.regime-narrative {
+  color: var(--muted); font-size: 12px; line-height: 1.5;
+  flex: 1; min-width: 200px;
+}
+.regime-signals {
+  display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px;
+}
+.signal-chip {
+  background: var(--surface); border: 1px solid var(--border);
+  color: var(--muted); padding: 2px 8px;
+  border-radius: 12px; font-size: 10px;
+}
+
+/* ═══════════════════════════════════════════════
+   LENS NAVIGATION (tabs)
+═══════════════════════════════════════════════ */
+#lens-nav {
+  display: flex; gap: 4px; padding: 10px 20px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap; overflow-x: auto;
+}
+.lens-btn {
+  background: none; border: none;
+  color: var(--muted); padding: 6px 14px;
+  border-radius: 6px; cursor: pointer;
+  font-size: 12px; font-weight: 500;
+  transition: all .15s; white-space: nowrap;
+  border: 1px solid transparent;
+}
+.lens-btn:hover { color: var(--text); background: var(--surface); }
+.lens-btn.active {
+  background: var(--surface2);
+  color: var(--accent);
+  border-color: var(--border);
+}
+.lens-score {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  margin-right: 5px;
+  vertical-align: middle;
+}
+
+/* ═══════════════════════════════════════════════
+   MAIN CONTENT
+═══════════════════════════════════════════════ */
+#main-content {
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* ═══════════════════════════════════════════════
+   LENS OVERVIEW CARDS
+═══════════════════════════════════════════════ */
+#overview-section { margin-bottom: 24px; }
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+.lens-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.lens-card:hover, .lens-card.active {
+  border-color: var(--accent);
+  background: var(--surface2);
+}
+.lens-card-header {
+  display: flex; justify-content: space-between;
+  align-items: center; margin-bottom: 8px;
+}
+.lens-card-name {
+  font-weight: 600; font-size: 13px; color: var(--text);
+}
+.lens-card-dir {
+  font-size: 10px; font-weight: 700;
+  padding: 2px 8px; border-radius: 10px;
+}
+.dir-expanding    { background: #0d2b1a; color: #3fb950; }
+.dir-contracting  { background: #2b0d0d; color: #f85149; }
+.dir-mixed        { background: #2b2200; color: #d29922; }
+.dir-insufficient_data { background: #1c2128; color: var(--muted); }
+.lens-card-score {
+  font-size: 28px; font-weight: 700;
+  color: var(--text); line-height: 1;
+  margin-bottom: 4px;
+}
+.lens-card-score span { font-size: 14px; color: var(--muted); font-weight: 400; }
+.lens-card-meta {
+  font-size: 10px; color: var(--muted);
+}
+.lens-card-meta b { color: var(--yellow); }
+
+/* ═══════════════════════════════════════════════
+   SECTION HEADERS
+═══════════════════════════════════════════════ */
+.section-title {
+  font-size: 13px; font-weight: 600;
+  color: var(--muted); text-transform: uppercase;
+  letter-spacing: .06em; margin-bottom: 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ═══════════════════════════════════════════════
+   ANOMALY TABLE
+═══════════════════════════════════════════════ */
+.anomaly-table {
+  width: 100%; border-collapse: collapse;
+  font-size: 12px;
+}
+.anomaly-table th {
+  text-align: left; color: var(--muted);
+  font-weight: 500; padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px; text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.anomaly-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(48,54,61,.5);
+  vertical-align: middle;
+}
+.anomaly-table tr:hover td { background: var(--surface2); }
+.z-badge {
+  display: inline-block; padding: 2px 8px;
+  border-radius: 10px; font-weight: 700;
+  font-size: 11px;
+}
+.z-up   { background: #2b0d0d; color: #f85149; }
+.z-down { background: #0d2b1a; color: #3fb950; }
+.extreme-badge {
+  display: inline-block; padding: 1px 6px;
+  border-radius: 8px; font-size: 10px;
+  background: #2b1500; color: #f0883e;
+  border: 1px solid #4d2800;
+  margin-left: 4px;
+}
+
+/* ═══════════════════════════════════════════════
+   DIVERGENCE CARDS
+═══════════════════════════════════════════════ */
+.divergence-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+.div-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+.div-card-header {
+  display: flex; justify-content: space-between;
+  align-items: flex-start; margin-bottom: 8px; gap: 8px;
+}
+.div-card-name { font-weight: 600; font-size: 12px; }
+.div-state-badge {
+  padding: 2px 8px; border-radius: 10px;
+  font-size: 10px; font-weight: 700;
+  white-space: nowrap; flex-shrink: 0;
+}
+.state-both_up    { background: #2b0d0d; color: #f85149; }
+.state-both_down  { background: #0d2b1a; color: #3fb950; }
+.state-a_up_b_down, .state-a_down_b_up { background: #2b2200; color: #d29922; }
+.state-transition { background: #1c2128; color: var(--muted); }
+.div-card-interp  { font-size: 11px; color: var(--muted); line-height: 1.4; }
+.div-bars { display: flex; gap: 8px; margin-top: 10px; }
+.div-bar-wrap { flex: 1; }
+.div-bar-label { font-size: 10px; color: var(--muted); margin-bottom: 3px; }
+.div-bar-track {
+  height: 4px; background: var(--border);
+  border-radius: 2px; overflow: hidden;
+}
+.div-bar-fill {
+  height: 100%; border-radius: 2px;
+  transition: width .3s;
+}
+
+/* ═══════════════════════════════════════════════
+   SERIES GRID (charts)
+═══════════════════════════════════════════════ */
+.series-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+}
+.series-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+.series-card-header {
+  display: flex; justify-content: space-between;
+  align-items: flex-start; margin-bottom: 4px; gap: 8px;
+}
+.series-name {
+  font-weight: 600; font-size: 12px;
+  color: var(--text); line-height: 1.3;
+}
+.series-latest {
+  display: flex; align-items: baseline; gap: 6px;
+  margin-bottom: 2px;
+}
+.series-value {
+  font-size: 20px; font-weight: 700; color: var(--text);
+}
+.series-change {
+  font-size: 11px; font-weight: 600;
+}
+.chg-up   { color: var(--red); }
+.chg-down { color: var(--green); }
+.chg-neutral { color: var(--muted); }
+.series-date { font-size: 10px; color: var(--muted); }
+.series-percentile {
+  font-size: 10px; color: var(--muted);
+  margin-bottom: 8px;
+}
+.pct-bar-track {
+  height: 3px; background: var(--border);
+  border-radius: 2px; overflow: hidden;
+  margin-top: 2px;
+}
+.pct-bar-fill {
+  height: 100%; border-radius: 2px;
+  background: var(--accent);
+}
+.chart-container { height: 140px; }
+
+/* ═══════════════════════════════════════════════
+   LOADING / ERROR STATES
+═══════════════════════════════════════════════ */
+.loading-msg {
+  text-align: center; padding: 60px 20px;
+  color: var(--muted); font-size: 14px;
+}
+.loading-spinner {
+  display: inline-block; width: 20px; height: 20px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+  margin-right: 8px; vertical-align: middle;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.error-msg {
+  text-align: center; padding: 40px 20px;
+  color: var(--red); font-size: 13px;
+}
+
+/* ═══════════════════════════════════════════════
+   SECTION SPACING
+═══════════════════════════════════════════════ */
+.lens-section { margin-bottom: 32px; }
+
+/* ═══════════════════════════════════════════════
+   RESPONSIVE
+═══════════════════════════════════════════════ */
+@media (max-width: 600px) {
+  #main-content { padding: 12px; }
+  .series-grid { grid-template-columns: 1fr; }
+  .overview-grid { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════
+     STICKY HEADER
+═══════════════════════════════════════════ -->
+<div id="sticky-header">
+  <nav>
+    <div class="logo">Macro Dashboard <span>by Elana Trading</span></div>
+    <div class="region-tabs">
+      <button class="region-tab active" onclick="switchRegion('US')" id="tab-US">🇺🇸 САЩ</button>
+      <button class="region-tab" onclick="switchRegion('EA')" id="tab-EA">🇪🇺 Еврозона</button>
+    </div>
+    <div class="spacer"></div>
+    <span id="last-update">—</span>
+    <button class="refresh-btn" onclick="reloadData()" title="Презареди данните">↻ Обнови</button>
+  </nav>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     REGIME BANNER
+═══════════════════════════════════════════ -->
+<div id="regime-banner">
+  <div class="regime-inner">
+    <div id="regime-badge" class="regime-badge regime-default">—</div>
+    <div>
+      <div id="regime-narrative" class="regime-narrative">Зареждане...</div>
+      <div id="regime-signals" class="regime-signals"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     LENS NAVIGATION
+═══════════════════════════════════════════ -->
+<div id="lens-nav">
+  <button class="lens-btn active" onclick="showLens('overview')" id="lbtn-overview">
+    Обзор
+  </button>
+  <!-- динамично попълване -->
+</div>
+
+<!-- ═══════════════════════════════════════════
+     MAIN CONTENT
+═══════════════════════════════════════════ -->
+<div id="main-content">
+  <div class="loading-msg">
+    <span class="loading-spinner"></span>
+    Зареждане на данни...
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   CONFIG
+═══════════════════════════════════════════════════════════════════ */
+const GITHUB_USER = 'tsvetoslavtsachev';
+const DATA_URLS = {
+  US: {
+    macro_state: `https://raw.githubusercontent.com/${GITHUB_USER}/us-macro-dashboard/main/output/api/macro_state.json`,
+    series_data: `https://raw.githubusercontent.com/${GITHUB_USER}/us-macro-dashboard/main/output/api/series_data.json`,
+  },
+  EA: {
+    macro_state: `https://raw.githubusercontent.com/${GITHUB_USER}/eu-macro-dashboard/main/output/api/macro_state.json`,
+    series_data: `https://raw.githubusercontent.com/${GITHUB_USER}/eu-macro-dashboard/main/output/api/series_data.json`,
+  },
+};
+
+const LENS_LABELS = {
+  labor:     'Трудов пазар',
+  inflation: 'Инфлация',
+  growth:    'Растеж',
+  liquidity: 'Ликвидност',
+  credit:    'Кредит & Финансови условия',
+  ecb:       'ЕЦБ политика',
+};
+
+const LENS_ORDER_US = ['labor', 'inflation', 'growth', 'liquidity'];
+const LENS_ORDER_EA = ['labor', 'inflation', 'growth', 'credit', 'ecb'];
+
+/* ═══════════════════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════════════════ */
+let state = {
+  region: 'US',
+  activeLens: 'overview',
+  macroState: null,
+  seriesData: null,
+  loading: false,
+};
+
+/* ═══════════════════════════════════════════════════════════════════
+   DATA LOADING
+═══════════════════════════════════════════════════════════════════ */
+async function loadData(region) {
+  const urls = DATA_URLS[region];
+  const [msResp, sdResp] = await Promise.all([
+    fetch(urls.macro_state + '?t=' + Date.now()),
+    fetch(urls.series_data + '?t=' + Date.now()),
+  ]);
+  if (!msResp.ok) throw new Error(`macro_state.json: ${msResp.status} ${msResp.statusText}`);
+  if (!sdResp.ok) throw new Error(`series_data.json: ${sdResp.status} ${sdResp.statusText}`);
+  const macroState = await msResp.json();
+  const seriesData = await sdResp.json();
+  return { macroState, seriesData };
+}
+
+async function reloadData() {
+  state.loading = true;
+  showLoading();
+  try {
+    const { macroState, seriesData } = await loadData(state.region);
+    state.macroState = macroState;
+    state.seriesData = seriesData;
+    buildUI();
+  } catch (err) {
+    showError(err);
+  }
+  state.loading = false;
+}
+
+function switchRegion(region) {
+  if (state.region === region) return;
+  state.region = region;
+  state.activeLens = 'overview';
+  document.querySelectorAll('.region-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + region).classList.add('active');
+  reloadData();
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   UI BUILDERS
+═══════════════════════════════════════════════════════════════════ */
+function showLoading() {
+  document.getElementById('main-content').innerHTML =
+    '<div class="loading-msg"><span class="loading-spinner"></span>Зареждане на данни...</div>';
+  document.getElementById('regime-banner').classList.remove('visible');
+}
+
+function showError(err) {
+  document.getElementById('main-content').innerHTML =
+    `<div class="error-msg">
+      <b>Грешка при зареждане на данните</b><br><br>
+      ${err.message}<br><br>
+      <small>Проверете дали JSON файловете са генерирани в репото.<br>
+      Стартирайте <code>python export_api.py --refresh</code> и push-нете промените.</small>
+    </div>`;
+}
+
+function buildUI() {
+  const ms = state.macroState;
+  const sd = state.seriesData;
+
+  // Last update
+  const dt = new Date(ms.generated_at);
+  document.getElementById('last-update').textContent =
+    'Обновено: ' + dt.toLocaleDateString('bg-BG', { day:'2-digit', month:'short', year:'numeric' });
+
+  // Regime banner
+  buildRegimeBanner(ms);
+
+  // Lens nav
+  buildLensNav(ms);
+
+  // Content
+  showLens(state.activeLens);
+}
+
+function buildRegimeBanner(ms) {
+  const exec = ms.executive_summary;
+  const banner = document.getElementById('regime-banner');
+  const badge = document.getElementById('regime-badge');
+  const narrative = document.getElementById('regime-narrative');
+  const signals = document.getElementById('regime-signals');
+
+  // Badge CSS
+  const cssMap = {
+    expansion: 'regime-expansion',
+    soft_landing: 'regime-soft-landing',
+    transition: 'regime-transition',
+    slowdown: 'regime-slowdown',
+    stagflation_confirmed: 'regime-stagflation',
+    policy_dilemma: 'regime-policy-dilemma',
+  };
+  const cssClass = cssMap[exec.regime_key] || 'regime-default';
+  badge.className = 'regime-badge ' + cssClass;
+  badge.textContent = exec.regime_label_bg || exec.regime_key;
+
+  narrative.textContent = exec.narrative || '';
+
+  signals.innerHTML = (exec.supporting_signals || [])
+    .map(s => `<span class="signal-chip">${s}</span>`)
+    .join('');
+
+  banner.classList.add('visible');
+}
+
+function buildLensNav(ms) {
+  const lensOrder = state.region === 'US' ? LENS_ORDER_US : LENS_ORDER_EA;
+  const nav = document.getElementById('lens-nav');
+  nav.innerHTML = `
+    <button class="lens-btn ${state.activeLens === 'overview' ? 'active' : ''}"
+            onclick="showLens('overview')" id="lbtn-overview">Обзор</button>
+  `;
+
+  lensOrder.forEach(lens => {
+    const ldata = ms.lenses?.[lens];
+    const label = LENS_LABELS[lens] || lens;
+    const dir = ldata?.direction || 'insufficient_data';
+    const dotColor = dir === 'expanding' ? '#3fb950' : dir === 'contracting' ? '#f85149' : '#d29922';
+    nav.innerHTML += `
+      <button class="lens-btn ${state.activeLens === lens ? 'active' : ''}"
+              onclick="showLens('${lens}')" id="lbtn-${lens}">
+        <span class="lens-score" style="background:${dotColor}"></span>${label}
+      </button>
+    `;
+  });
+
+  // Anomalies tab
+  nav.innerHTML += `
+    <button class="lens-btn ${state.activeLens === 'anomalies' ? 'active' : ''}"
+            onclick="showLens('anomalies')" id="lbtn-anomalies">
+      Аномалии ${ms.top_anomalies?.length ? `(${ms.top_anomalies.length})` : ''}
+    </button>
+    <button class="lens-btn ${state.activeLens === 'divergences' ? 'active' : ''}"
+            onclick="showLens('divergences')" id="lbtn-divergences">
+      Дивергенции
+    </button>
+  `;
+}
+
+function showLens(lens) {
+  state.activeLens = lens;
+
+  // Update active button
+  document.querySelectorAll('.lens-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('lbtn-' + lens);
+  if (btn) btn.classList.add('active');
+
+  const container = document.getElementById('main-content');
+  const ms = state.macroState;
+  const sd = state.seriesData;
+
+  if (lens === 'overview') {
+    container.innerHTML = buildOverview(ms, sd);
+  } else if (lens === 'anomalies') {
+    container.innerHTML = buildAnomaliesSection(ms);
+  } else if (lens === 'divergences') {
+    container.innerHTML = buildDivergencesSection(ms);
+  } else {
+    container.innerHTML = buildLensSection(lens, ms, sd);
+    // Render charts after DOM is ready
+    requestAnimationFrame(() => renderLensCharts(lens, sd));
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   OVERVIEW
+═══════════════════════════════════════════════════════════════════ */
+function buildOverview(ms, sd) {
+  const lensOrder = state.region === 'US' ? LENS_ORDER_US : LENS_ORDER_EA;
+  let html = '<div id="overview-section">';
+  html += '<div class="section-title">Лещи — Обзор</div>';
+  html += '<div class="overview-grid">';
+
+  lensOrder.forEach(lens => {
+    const ldata = ms.lenses?.[lens] || {};
+    const label = LENS_LABELS[lens] || lens;
+    const score = ldata.score != null ? ldata.score.toFixed(0) : '—';
+    const dir = ldata.direction || 'insufficient_data';
+    const dirLabel = {
+      expanding: 'Разширяване', contracting: 'Свиване',
+      mixed: 'Смесено', insufficient_data: 'Недостатъчно данни'
+    }[dir] || dir;
+    const anoms = ldata.anomalies_count || 0;
+    const extremes = ldata.new_extreme_count || 0;
+
+    html += `
+      <div class="lens-card" onclick="showLens('${lens}')">
+        <div class="lens-card-header">
+          <div class="lens-card-name">${label}</div>
+          <div class="lens-card-dir dir-${dir}">${dirLabel}</div>
+        </div>
+        <div class="lens-card-score">${score}<span>%</span></div>
+        <div class="lens-card-meta">
+          Breadth: ${score}% &nbsp;|&nbsp;
+          ${anoms > 0 ? `<b>${anoms} аномалии</b>` : 'Без аномалии'}
+          ${extremes > 0 ? ` · <b>${extremes} нови екстремума</b>` : ''}
+        </div>
+      </div>
+    `;
+  });
+
+  html += '</div></div>';
+
+  // Top anomalies preview
+  if (ms.top_anomalies?.length) {
+    html += '<div class="lens-section">';
+    html += '<div class="section-title">Топ аномалии</div>';
+    html += buildAnomaliesTable(ms.top_anomalies.slice(0, 5));
+    html += '</div>';
+  }
+
+  // Cross-lens divergences preview
+  if (ms.cross_lens_divergences?.length) {
+    html += '<div class="lens-section">';
+    html += '<div class="section-title">Cross-lens дивергенции</div>';
+    html += buildDivergenceCards(ms.cross_lens_divergences);
+    html += '</div>';
+  }
+
+  return html;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   LENS SECTION
+═══════════════════════════════════════════════════════════════════ */
+function buildLensSection(lens, ms, sd) {
+  const ldata = ms.lenses?.[lens] || {};
+  const label = LENS_LABELS[lens] || lens;
+  const dir = ldata.direction || 'insufficient_data';
+  const dirLabel = {
+    expanding: 'Разширяване', contracting: 'Свиване',
+    mixed: 'Смесено', insufficient_data: 'Недостатъчно данни'
+  }[dir] || dir;
+  const score = ldata.score != null ? ldata.score.toFixed(0) : '—';
+
+  let html = `
+    <div class="lens-section">
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap;">
+        <div style="font-size:22px; font-weight:700;">${label}</div>
+        <div class="lens-card-dir dir-${dir}">${dirLabel}</div>
+        <div style="font-size:13px; color:var(--muted);">Breadth: <b style="color:var(--text)">${score}%</b></div>
+        ${ldata.anomalies_count > 0 ? `<div style="font-size:12px; color:var(--yellow);">${ldata.anomalies_count} аномалии</div>` : ''}
+      </div>
+  `;
+
+  // Intra-lens divergences
+  if (ldata.intra_divergences?.length) {
+    html += '<div class="section-title">Вътрешни дивергенции</div>';
+    html += buildDivergenceCards(ldata.intra_divergences);
+    html += '<br>';
+  }
+
+  // Lens anomalies
+  const lensAnoms = (ms.top_anomalies || []).filter(a => {
+    const aLens = Array.isArray(a.lens) ? a.lens : [a.lens];
+    return aLens.includes(lens);
+  });
+  if (lensAnoms.length) {
+    html += '<div class="section-title">Аномалии в тази леща</div>';
+    html += buildAnomaliesTable(lensAnoms);
+    html += '<br>';
+  }
+
+  // Series charts
+  const lensSeries = Object.entries(sd?.series || {})
+    .filter(([id, s]) => {
+      const lAll = s.meta?.lens_all || [s.meta?.lens];
+      return lAll.includes(lens);
+    });
+
+  if (lensSeries.length) {
+    html += '<div class="section-title">Индикатори</div>';
+    html += '<div class="series-grid" id="series-grid-' + lens + '">';
+    lensSeries.forEach(([id, s]) => {
+      html += buildSeriesCard(id, s);
+    });
+    html += '</div>';
+  }
+
+  html += '</div>';
+  return html;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   SERIES CARD
+═══════════════════════════════════════════════════════════════════ */
+function buildSeriesCard(id, s) {
+  const latest = s.latest || {};
+  const meta = s.meta || {};
+  const val = latest.value != null ? fmtValue(latest.value, meta) : '—';
+  const yoy = latest.yoy_change;
+  const pct = latest.percentile;
+  const date = latest.date ? latest.date.substring(0, 7) : '';
+
+  let chgHtml = '';
+  if (yoy != null && !isNaN(yoy)) {
+    const sign = yoy > 0 ? '+' : '';
+    const cls = meta.change_kind === 'bps'
+      ? (yoy > 0 ? 'chg-up' : 'chg-down')
+      : (yoy > 0 ? 'chg-up' : 'chg-down');
+    const unit = meta.change_kind === 'bps' ? ' bps' : (meta.change_kind === 'absolute' ? '' : '%');
+    chgHtml = `<span class="series-change ${cls}">${sign}${yoy.toFixed(1)}${unit} YoY</span>`;
+  }
+
+  let pctHtml = '';
+  if (pct != null && !isNaN(pct)) {
+    const pctColor = pct > 80 ? '#f85149' : pct < 20 ? '#3fb950' : '#58a6ff';
+    pctHtml = `
+      <div class="series-percentile">
+        Percentile: <b style="color:${pctColor}">${pct.toFixed(0)}%</b>
+        <div class="pct-bar-track">
+          <div class="pct-bar-fill" style="width:${pct}%; background:${pctColor}"></div>
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="series-card">
+      <div class="series-card-header">
+        <div class="series-name">${meta.name_bg || id}</div>
+      </div>
+      <div class="series-latest">
+        <div class="series-value">${val}</div>
+        ${chgHtml}
+      </div>
+      <div class="series-date">${date}</div>
+      ${pctHtml}
+      <div class="chart-container" id="chart-${id}"></div>
+    </div>
+  `;
+}
+
+function fmtValue(val, meta) {
+  if (val == null || isNaN(val)) return '—';
+  const kind = meta.change_kind || 'percent';
+  if (kind === 'bps') return val.toFixed(2) + '%';
+  if (kind === 'absolute') return val.toFixed(2);
+  // percent or level
+  if (Math.abs(val) >= 1000) return val.toFixed(0);
+  if (Math.abs(val) >= 10) return val.toFixed(1);
+  return val.toFixed(2);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   CHARTS (Plotly)
+═══════════════════════════════════════════════════════════════════ */
+function renderLensCharts(lens, sd) {
+  const lensSeries = Object.entries(sd?.series || {})
+    .filter(([id, s]) => {
+      const lAll = s.meta?.lens_all || [s.meta?.lens];
+      return lAll.includes(lens);
+    });
+
+  lensSeries.forEach(([id, s]) => {
+    const el = document.getElementById('chart-' + id);
+    if (!el) return;
+    const chart = s.chart || {};
+    if (!chart.dates?.length) return;
+
+    const trace = {
+      x: chart.dates,
+      y: chart.values,
+      type: 'scatter',
+      mode: 'lines',
+      line: { color: '#58a6ff', width: 1.5 },
+      hovertemplate: '%{x}<br><b>%{y:.3f}</b><extra></extra>',
+    };
+
+    const layout = {
+      paper_bgcolor: 'transparent',
+      plot_bgcolor: 'transparent',
+      margin: { t: 4, r: 4, b: 24, l: 36 },
+      xaxis: {
+        color: '#8b949e', tickfont: { size: 9 },
+        gridcolor: '#21262d', showgrid: true,
+        zeroline: false,
+      },
+      yaxis: {
+        color: '#8b949e', tickfont: { size: 9 },
+        gridcolor: '#21262d', showgrid: true,
+        zeroline: false,
+      },
+      showlegend: false,
+      hoverlabel: {
+        bgcolor: '#161b22', bordercolor: '#30363d',
+        font: { color: '#e6edf3', size: 11 },
+      },
+    };
+
+    Plotly.newPlot(el, [trace], layout, {
+      displayModeBar: false,
+      responsive: true,
+    });
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ANOMALIES
+═══════════════════════════════════════════════════════════════════ */
+function buildAnomaliesSection(ms) {
+  let html = '<div class="lens-section">';
+  html += '<div class="section-title">Всички аномалии</div>';
+  if (!ms.top_anomalies?.length) {
+    html += '<div style="color:var(--muted); padding:20px 0;">Няма аномалии.</div>';
+  } else {
+    html += buildAnomaliesTable(ms.top_anomalies);
+  }
+  html += '</div>';
+  return html;
+}
+
+function buildAnomaliesTable(anomalies) {
+  let html = `
+    <table class="anomaly-table">
+      <thead>
+        <tr>
+          <th>Индикатор</th>
+          <th>Леща</th>
+          <th>Z-score</th>
+          <th>Стойност</th>
+          <th>Дата</th>
+          <th>Narrative</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+  anomalies.forEach(a => {
+    const z = a.z_score != null ? a.z_score.toFixed(2) : '—';
+    const zCls = a.direction === 'up' ? 'z-up' : 'z-down';
+    const sign = a.z_score > 0 ? '+' : '';
+    const val = a.current_value != null ? a.current_value.toFixed(3) : '—';
+    const lens = Array.isArray(a.lens) ? a.lens.join(', ') : (a.lens || '—');
+    const extremeBadge = a.is_new_extreme
+      ? `<span class="extreme-badge">Нов екстремум</span>` : '';
+    html += `
+      <tr>
+        <td><b>${a.name_bg || a.series_id}</b>${extremeBadge}<br>
+            <small style="color:var(--muted)">${a.series_id}</small></td>
+        <td style="color:var(--muted)">${lens}</td>
+        <td><span class="z-badge ${zCls}">${sign}${z}</span></td>
+        <td>${val}</td>
+        <td style="color:var(--muted)">${a.last_date || '—'}</td>
+        <td style="color:var(--muted); font-size:11px; max-width:200px">${a.narrative_hint || ''}</td>
+      </tr>
+    `;
+  });
+  html += '</tbody></table>';
+  return html;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   DIVERGENCES
+═══════════════════════════════════════════════════════════════════ */
+function buildDivergencesSection(ms) {
+  let html = '<div class="lens-section">';
+  html += '<div class="section-title">Cross-lens дивергенции</div>';
+  html += buildDivergenceCards(ms.cross_lens_divergences || []);
+  html += '</div>';
+  return html;
+}
+
+function buildDivergenceCards(divs) {
+  if (!divs?.length) return '<div style="color:var(--muted); padding:16px 0;">Няма дивергенции.</div>';
+  const stateLabels = {
+    both_up: 'И двете нагоре', both_down: 'И двете надолу',
+    a_up_b_down: 'A↑ B↓', a_down_b_up: 'A↓ B↑',
+    transition: 'Преход',
+  };
+  let html = '<div class="divergence-grid">';
+  divs.forEach(d => {
+    const stateLabel = stateLabels[d.state] || d.state;
+    const bA = d.breadth_a != null ? (d.breadth_a * 100).toFixed(0) : 0;
+    const bB = d.breadth_b != null ? (d.breadth_b * 100).toFixed(0) : 0;
+    const barColorA = d.breadth_a > 0.6 ? '#3fb950' : d.breadth_a < 0.4 ? '#f85149' : '#d29922';
+    const barColorB = d.breadth_b > 0.6 ? '#3fb950' : d.breadth_b < 0.4 ? '#f85149' : '#d29922';
+
+    html += `
+      <div class="div-card">
+        <div class="div-card-header">
+          <div class="div-card-name">${d.name_bg || d.pair_id}</div>
+          <div class="div-state-badge state-${d.state}">${stateLabel}</div>
+        </div>
+        <div class="div-card-interp">${d.interpretation || ''}</div>
+        <div class="div-bars">
+          <div class="div-bar-wrap">
+            <div class="div-bar-label">${d.slot_a_label || 'A'}: ${bA}%</div>
+            <div class="div-bar-track">
+              <div class="div-bar-fill" style="width:${bA}%; background:${barColorA}"></div>
+            </div>
+          </div>
+          <div class="div-bar-wrap">
+            <div class="div-bar-label">${d.slot_b_label || 'B'}: ${bB}%</div>
+            <div class="div-bar-track">
+              <div class="div-bar-fill" style="width:${bB}%; background:${barColorB}"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  });
+  html += '</div>';
+  return html;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════════════════ */
+reloadData();
+</script>
+</body>
+</html>
