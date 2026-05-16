@@ -80,6 +80,17 @@ nav {
 }
 .refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
 
+.range-label {
+  color: var(--muted); font-size: 11px; margin-right: 4px;
+}
+.range-select {
+  background: var(--panel); border: 1px solid var(--border);
+  color: var(--text); padding: 4px 8px;
+  border-radius: 6px; font-size: 11px; cursor: pointer;
+  margin-right: 8px;
+}
+.range-select:hover { border-color: var(--accent); }
+
 /* ═══════════════════════════════════════════════
    REGIME BANNER
 ═══════════════════════════════════════════════ */
@@ -393,6 +404,13 @@ nav {
       <button class="region-tab" onclick="switchRegion('EA')" id="tab-EA">🇪🇺 Еврозона</button>
     </div>
     <div class="spacer"></div>
+    <label for="range-select" class="range-label">Прозорец:</label>
+    <select id="range-select" class="range-select" onchange="setRange(this.value)">
+      <option value="1">1 г.</option>
+      <option value="3">3 г.</option>
+      <option value="5" selected>5 г.</option>
+      <option value="10">10 г.</option>
+    </select>
     <span id="last-update">—</span>
     <button class="refresh-btn" onclick="reloadData()" title="Презареди данните">↻ Обнови</button>
   </nav>
@@ -468,7 +486,42 @@ let state = {
   macroState: null,
   seriesData: null,
   loading: false,
+  rangeYears: 5,
 };
+
+/* ═══════════════════════════════════════════════════════════════════
+   TIME-RANGE HELPERS
+═══════════════════════════════════════════════════════════════════ */
+function sliceChartToRange(chart, years) {
+  const dates = chart?.dates || [];
+  const values = chart?.values || [];
+  if (!dates.length) return { dates: [], values: [] };
+  const cutoff = new Date();
+  cutoff.setFullYear(cutoff.getFullYear() - years);
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+  const startIdx = dates.findIndex(d => d >= cutoffStr);
+  if (startIdx < 0) return { dates: [], values: [] };
+  return {
+    dates: dates.slice(startIdx),
+    values: values.slice(startIdx),
+  };
+}
+
+function percentileRank(values, target) {
+  const clean = values.filter(v => v != null && !isNaN(v));
+  if (!clean.length || target == null || isNaN(target)) return null;
+  let below = 0;
+  for (const v of clean) if (v < target) below += 1;
+  return (below / clean.length) * 100;
+}
+
+function setRange(years) {
+  const y = parseInt(years, 10);
+  if (!y || y === state.rangeYears) return;
+  state.rangeYears = y;
+  // Re-render current view с новия прозорец
+  if (state.macroState && state.seriesData) showLens(state.activeLens);
+}
 
 /* ═══════════════════════════════════════════════════════════════════
    DATA LOADING
@@ -762,7 +815,10 @@ function buildSeriesCard(id, s) {
   const meta = s.meta || {};
   const val = latest.value != null ? fmtValue(latest.value, meta) : '—';
   const yoy = latest.yoy_change;
-  const pct = latest.percentile;
+  // Percentile се пресмята върху ВИДИМИЯ прозорец (state.rangeYears), а не върху
+  // целия history. Така "Percentile 80%" означава "в горните 20% за последните N години".
+  const sliced = sliceChartToRange(s.chart, state.rangeYears);
+  const pct = percentileRank(sliced.values, latest.value);
   const date = latest.date ? latest.date.substring(0, 7) : '';
 
   let chgHtml = '';
@@ -807,6 +863,12 @@ function buildSeriesCard(id, s) {
 function fmtValue(val, meta) {
   if (val == null || isNaN(val)) return '—';
   const kind = meta.change_kind || 'percent';
+  const transform = meta.transform || 'level';
+  // YoY/QoQ серии са вече % промяна — суфикс е задължителен
+  if (transform === 'yoy_pct' || transform === 'qoq_pct') {
+    const suffix = transform === 'qoq_pct' ? '% QoQ' : '% YoY';
+    return val.toFixed(2) + suffix;
+  }
   if (kind === 'bps') return val.toFixed(2) + '%';
   if (kind === 'absolute') return val.toFixed(2);
   // percent or level
@@ -828,8 +890,8 @@ function renderLensCharts(lens, sd) {
   lensSeries.forEach(([id, s]) => {
     const el = document.getElementById('chart-' + id);
     if (!el) return;
-    const chart = s.chart || {};
-    if (!chart.dates?.length) return;
+    const chart = sliceChartToRange(s.chart, state.rangeYears);
+    if (!chart.dates.length) return;
 
     const trace = {
       x: chart.dates,
