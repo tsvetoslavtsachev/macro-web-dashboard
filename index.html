@@ -340,6 +340,7 @@ nav {
 .chg-down { color: var(--green); }
 .chg-neutral { color: var(--muted); }
 .series-date { font-size: 10px; color: var(--muted); }
+.series-date-stale { font-size: 10px; color: #d29922; font-weight: 700; }
 .series-percentile {
   font-size: 10px; color: var(--muted);
   margin-bottom: 8px;
@@ -820,6 +821,13 @@ function buildSeriesCard(id, s) {
   const sliced = sliceChartToRange(s.chart, state.rangeYears);
   const pct = percentileRank(sliced.values, latest.value);
   const date = latest.date ? latest.date.substring(0, 7) : '';
+  // Staleness: серия изостанала с месеци (флагната в series_data.json) НЕ се показва
+  // като уверено текуща — амбър ⚠ с периодите назад вместо обикновена дата.
+  const stale = latest.stale === true;
+  const pb = latest.periods_behind;
+  const dateHtml = stale
+    ? `<div class="series-date-stale" title="Данните са остарели — последно наблюдение ${date}; източникът не е публикувал по-ново">⚠ ${date}${pb ? ` · ~${pb} п. зад` : ''}</div>`
+    : `<div class="series-date">${date}</div>`;
 
   let chgHtml = '';
   if (yoy != null && !isNaN(yoy)) {
@@ -853,7 +861,7 @@ function buildSeriesCard(id, s) {
         <div class="series-value">${val}</div>
         ${chgHtml}
       </div>
-      <div class="series-date">${date}</div>
+      ${dateHtml}
       ${pctHtml}
       <div class="chart-container" id="chart-${id}"></div>
     </div>
