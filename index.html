@@ -1013,10 +1013,15 @@ function buildDivergenceCards(divs) {
   let html = '<div class="divergence-grid">';
   divs.forEach(d => {
     const stateLabel = stateLabels[d.state] || d.state;
-    const bA = d.breadth_a != null ? (d.breadth_a * 100).toFixed(0) : 0;
-    const bB = d.breadth_b != null ? (d.breadth_b * 100).toFixed(0) : 0;
-    const barColorA = d.breadth_a > 0.6 ? '#3fb950' : d.breadth_a < 0.4 ? '#f85149' : '#d29922';
-    const barColorB = d.breadth_b > 0.6 ? '#3fb950' : d.breadth_b < 0.4 ? '#f85149' : '#d29922';
+    // null-aware: липсваща breadth → '—' сиво, не '0%' червено (null < 0.4 е true в JS).
+    const aMissing = d.breadth_a == null;
+    const bMissing = d.breadth_b == null;
+    const bA = aMissing ? 0 : (d.breadth_a * 100).toFixed(0);
+    const bB = bMissing ? 0 : (d.breadth_b * 100).toFixed(0);
+    const labelA = aMissing ? '—' : `${bA}%`;
+    const labelB = bMissing ? '—' : `${bB}%`;
+    const barColorA = aMissing ? '#484f58' : (d.breadth_a > 0.6 ? '#3fb950' : d.breadth_a < 0.4 ? '#f85149' : '#d29922');
+    const barColorB = bMissing ? '#484f58' : (d.breadth_b > 0.6 ? '#3fb950' : d.breadth_b < 0.4 ? '#f85149' : '#d29922');
 
     html += `
       <div class="div-card">
@@ -1027,13 +1032,13 @@ function buildDivergenceCards(divs) {
         <div class="div-card-interp">${d.interpretation || ''}</div>
         <div class="div-bars">
           <div class="div-bar-wrap">
-            <div class="div-bar-label">${d.slot_a_label || 'A'}: ${bA}%</div>
+            <div class="div-bar-label">${d.slot_a_label || 'A'}: ${labelA}</div>
             <div class="div-bar-track">
               <div class="div-bar-fill" style="width:${bA}%; background:${barColorA}"></div>
             </div>
           </div>
           <div class="div-bar-wrap">
-            <div class="div-bar-label">${d.slot_b_label || 'B'}: ${bB}%</div>
+            <div class="div-bar-label">${d.slot_b_label || 'B'}: ${labelB}</div>
             <div class="div-bar-track">
               <div class="div-bar-fill" style="width:${bB}%; background:${barColorB}"></div>
             </div>
