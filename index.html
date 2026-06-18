@@ -72,6 +72,9 @@ nav {
 #last-update {
   font-size: 11px; color: var(--muted); white-space: nowrap;
 }
+/* S14 age праг — мъртъв/застоял канал не свети тихо „свежо". */
+#last-update.stale-warn { color: #d29922; font-weight: 700; }
+#last-update.stale-dead { color: #f85149; font-weight: 700; }
 .refresh-btn {
   background: none; border: 1px solid var(--border);
   color: var(--muted); padding: 5px 10px;
@@ -472,11 +475,24 @@ const LENS_LABELS = {
   growth:    'Растеж',
   liquidity: 'Ликвидност',
   credit:    'Кредит & Финансови условия',
-  ecb:       'ЕЦБ политика',
+  external:  'Външен сектор',
 };
 
 const LENS_ORDER_US = ['labor', 'inflation', 'growth', 'liquidity'];
-const LENS_ORDER_EA = ['labor', 'inflation', 'growth', 'credit', 'ecb'];
+// EU backend разглоби мъртвата „ecb" леща → „external" (F-teardown 2026-06-05).
+const LENS_ORDER_EA = ['labor', 'growth', 'inflation', 'credit', 'external'];
+
+// S14 · lens contract — nav-ът следва ДАННИТЕ, не статичен списък. Подрежда по
+// предпочитания ред (LENS_ORDER_*), показва само лещи, които реално са в JSON-а,
+// и добавя всяка нова, която backend-ът въведе. Така мъртъв бутон („ecb") не виси
+// и нова леща („external") не изчезва — frontend-ът вече не дрейфа от backend-а.
+function lensOrderFor(ms) {
+  const pref = state.region === 'US' ? LENS_ORDER_US : LENS_ORDER_EA;
+  const present = (ms && ms.lenses) ? Object.keys(ms.lenses) : [];
+  const ordered = pref.filter(l => present.includes(l));
+  present.forEach(l => { if (!ordered.includes(l)) ordered.push(l); });
+  return ordered;
+}
 
 /* ═══════════════════════════════════════════════════════════════════
    STATE
@@ -582,14 +598,34 @@ function showError(err) {
     </div>`;
 }
 
+// S14 · age праг за „Обновено". Седмична каденца → 1 изпусната публикация (warn,
+// амбър), 2+ изпуснати (dead, червено). Отделна функция = тестваем seam.
+const STALE_WARN_DAYS = 9;
+const STALE_DEAD_DAYS = 16;
+function applyLastUpdate(generatedAt) {
+  const lu = document.getElementById('last-update');
+  const dt = new Date(generatedAt);
+  lu.classList.remove('stale-warn', 'stale-dead');
+  if (isNaN(dt.getTime())) { lu.textContent = 'Обновено: —'; return; }
+  const dateStr = dt.toLocaleDateString('bg-BG', { day:'2-digit', month:'short', year:'numeric' });
+  const ageDays = Math.floor((Date.now() - dt.getTime()) / 86400000);
+  if (ageDays > STALE_DEAD_DAYS) {
+    lu.textContent = 'Обновено: ' + dateStr + ' · ⚠ преди ' + ageDays + ' дни — застояло';
+    lu.classList.add('stale-dead');
+  } else if (ageDays > STALE_WARN_DAYS) {
+    lu.textContent = 'Обновено: ' + dateStr + ' · ⚠ преди ' + ageDays + ' дни';
+    lu.classList.add('stale-warn');
+  } else {
+    lu.textContent = 'Обновено: ' + dateStr;
+  }
+}
+
 function buildUI() {
   const ms = state.macroState;
   const sd = state.seriesData;
 
-  // Last update
-  const dt = new Date(ms.generated_at);
-  document.getElementById('last-update').textContent =
-    'Обновено: ' + dt.toLocaleDateString('bg-BG', { day:'2-digit', month:'short', year:'numeric' });
+  // Last update — с age праг (S14)
+  applyLastUpdate(ms.generated_at);
 
   // Regime banner
   buildRegimeBanner(ms);
@@ -631,7 +667,7 @@ function buildRegimeBanner(ms) {
 }
 
 function buildLensNav(ms) {
-  const lensOrder = state.region === 'US' ? LENS_ORDER_US : LENS_ORDER_EA;
+  const lensOrder = lensOrderFor(ms);
   const nav = document.getElementById('lens-nav');
   nav.innerHTML = `
     <button class="lens-btn ${state.activeLens === 'overview' ? 'active' : ''}"
@@ -693,7 +729,7 @@ function showLens(lens) {
    OVERVIEW
 ═══════════════════════════════════════════════════════════════════ */
 function buildOverview(ms, sd) {
-  const lensOrder = state.region === 'US' ? LENS_ORDER_US : LENS_ORDER_EA;
+  const lensOrder = lensOrderFor(ms);
   let html = '<div id="overview-section">';
   html += '<div class="section-title">Лещи — Обзор</div>';
   html += '<div class="overview-grid">';
