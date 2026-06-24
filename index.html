@@ -406,6 +406,7 @@ nav {
     <div class="region-tabs">
       <button class="region-tab active" onclick="switchRegion('US')" id="tab-US">🇺🇸 САЩ</button>
       <button class="region-tab" onclick="switchRegion('EA')" id="tab-EA">🇪🇺 Еврозона</button>
+      <button class="region-tab" onclick="switchRegion('CN')" id="tab-CN">🇨🇳 Китай</button>
     </div>
     <div class="spacer"></div>
     <label for="range-select" class="range-label">Прозорец:</label>
@@ -467,6 +468,10 @@ const DATA_URLS = {
     macro_state: `https://raw.githubusercontent.com/${GITHUB_USER}/eu-macro-dashboard/main/output/api/macro_state.json`,
     series_data: `https://raw.githubusercontent.com/${GITHUB_USER}/eu-macro-dashboard/main/output/api/series_data.json`,
   },
+  CN: {
+    macro_state: `https://raw.githubusercontent.com/${GITHUB_USER}/china-macro-dashboard/main/output/api/macro_state.json`,
+    series_data: `https://raw.githubusercontent.com/${GITHUB_USER}/china-macro-dashboard/main/output/api/series_data.json`,
+  },
 };
 
 const LENS_LABELS = {
@@ -476,18 +481,24 @@ const LENS_LABELS = {
   liquidity: 'Ликвидност',
   credit:    'Кредит & Финансови условия',
   external:  'Външен сектор',
+  property:  'Имоти и търговия',
 };
 
 const LENS_ORDER_US = ['labor', 'inflation', 'growth', 'liquidity'];
 // EU backend разглоби мъртвата „ecb" леща → „external" (F-teardown 2026-06-05).
 const LENS_ORDER_EA = ['labor', 'growth', 'inflation', 'credit', 'external'];
+// China-native ред (5-те модула на china-macro-dashboard); „property" = китайска
+// леща (имоти+търговия), няма аналог в US/EU — затова е своя в LENS_LABELS.
+const LENS_ORDER_CN = ['growth', 'inflation', 'labor', 'credit', 'property'];
+
+const LENS_ORDER_BY_REGION = { US: LENS_ORDER_US, EA: LENS_ORDER_EA, CN: LENS_ORDER_CN };
 
 // S14 · lens contract — nav-ът следва ДАННИТЕ, не статичен списък. Подрежда по
 // предпочитания ред (LENS_ORDER_*), показва само лещи, които реално са в JSON-а,
 // и добавя всяка нова, която backend-ът въведе. Така мъртъв бутон („ecb") не виси
 // и нова леща („external") не изчезва — frontend-ът вече не дрейфа от backend-а.
 function lensOrderFor(ms) {
-  const pref = state.region === 'US' ? LENS_ORDER_US : LENS_ORDER_EA;
+  const pref = LENS_ORDER_BY_REGION[state.region] || LENS_ORDER_US;
   const present = (ms && ms.lenses) ? Object.keys(ms.lenses) : [];
   const ordered = pref.filter(l => present.includes(l));
   present.forEach(l => { if (!ordered.includes(l)) ordered.push(l); });
@@ -652,6 +663,13 @@ function buildRegimeBanner(ms) {
     slowdown: 'regime-slowdown',
     stagflation_confirmed: 'regime-stagflation',
     policy_dilemma: 'regime-policy-dilemma',
+    // China-native режими (china-macro-dashboard REGIME_KEY_MAP) → преизползват
+    // съществуващите цветови класове по тежест, за да не виси сив „regime-default".
+    expansionary: 'regime-expansion',
+    healthy: 'regime-soft-landing',
+    mixed: 'regime-transition',
+    deteriorating: 'regime-slowdown',
+    recessionary: 'regime-stagflation',
   };
   const cssClass = cssMap[exec.regime_key] || 'regime-default';
   badge.className = 'regime-badge ' + cssClass;
