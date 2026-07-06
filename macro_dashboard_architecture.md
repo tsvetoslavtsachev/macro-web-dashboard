@@ -1,5 +1,28 @@
 # Архитектура на Macro Analytics Dashboard
 
+> **[ИСТОРИЧЕСКИ ДИЗАЙН-ДОКУМЕНТ — 2026-05]** Това е оригиналният план отпреди
+> строежа. Построеното се разминава на три места (виж „Какво реално е построено"
+> веднага след този блок). Документът се пази като запис на първоначалния замисъл;
+> за текущото състояние следвайте кода (`index.html`) и `README.md`.
+
+## Какво реално е построено (спрямо оригиналния план)
+
+- **Три региона, не два.** Backend-ите са `us-macro-dashboard` · `eu-macro-dashboard`
+  · **`china-macro-dashboard`** (табове САЩ / Еврозона / Китай, `index.html:407-409`,
+  `DATA_URLS`, `index.html:462-475`). Китай е презентационен таб над отделен backend,
+  не слят в macro-web.
+- **Monolith, не multi-file.** Фронтендът е **един** `index.html` (vanilla JS + inline
+  CSS, Plotly CDN) — няма `css/style.css`, `js/app.js`, `js/data.js`, `js/charts.js`
+  от §4. Нула build стъпка.
+- **JSON контрактът се разминава от §2.** Реалните ключове, четени от кода:
+  `macro_state.json` → `generated_at` (не `as_of_date`), `executive_summary.regime_key`
+  (не `composite_score`/`regime_label`), `regime_label_bg`, `narrative`,
+  `supporting_signals` (`index.html:639,651-682`). Лещите се подреждат по S14 lens
+  contract (`lensOrderFor`, `index.html:500-506`) — nav-ът следва наличните в JSON-а
+  лещи, не статичен списък. China добавя `property` леща (имоти+търговия), EA — `external`.
+
+---
+
 Този документ описва архитектурата за свързване на съществуващите бекенд репозитории (`us-macro-dashboard` и `eu-macro-dashboard`) с нов статичен фронтенд дашборд.
 
 ## 1. Обща архитектура
