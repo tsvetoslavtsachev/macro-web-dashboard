@@ -53,6 +53,14 @@ nav {
   white-space: nowrap; letter-spacing: -0.3px;
 }
 .logo span { color: var(--muted); font-weight: 400; }
+/* O4 (Вълна 1): уред-ниво епистемичен бадж, до заглавието (горен ляв ъгъл). */
+.obs-badge {
+  font-size: 9.5px; font-weight: 600; letter-spacing: 0.2px;
+  color: var(--muted); background: var(--card, rgba(127,127,127,0.10));
+  border: 1px solid var(--border); border-radius: 10px;
+  padding: 2px 9px; margin-right: 12px; white-space: nowrap;
+  text-transform: uppercase; cursor: help;
+}
 .region-tabs { display: flex; gap: 4px; }
 .region-tab {
   background: none; border: 1px solid var(--border);
@@ -348,6 +356,8 @@ nav {
   font-size: 10px; color: var(--muted);
   margin-bottom: 8px;
 }
+/* O3/B4: прозорец-етикетът до percentile-числото (10г канон / изследователски Xг). */
+.pct-window { font-size: 9px; color: var(--muted); opacity: 0.8; font-style: italic; }
 .pct-bar-track {
   height: 3px; background: var(--border);
   border-radius: 2px; overflow: hidden;
@@ -403,6 +413,10 @@ nav {
 <div id="sticky-header">
   <nav>
     <div class="logo">Macro Dashboard <span>by Elana Trading</span></div>
+    <!-- O4 (Вълна 1): уред-ниво епистемичен бадж — разплетени оси (насока · хоризонт).
+         НАБЛЮДЕНИЕ, НЕ СИГНАЛ = органът описва състояние, не дава препоръка;
+         coincident = чете сегашното, не прогнозира. -->
+    <div class="obs-badge" title="Този дашборд ОПИСВА текущото макро състояние (coincident), не дава сигнал за покупка/продажба и не прогнозира.">НАБЛЮДЕНИЕ, НЕ СИГНАЛ · coincident</div>
     <div class="region-tabs">
       <button class="region-tab active" onclick="switchRegion('US')" id="tab-US">🇺🇸 САЩ</button>
       <button class="region-tab" onclick="switchRegion('EA')" id="tab-EA">🇪🇺 Еврозона</button>
@@ -413,8 +427,8 @@ nav {
     <select id="range-select" class="range-select" onchange="setRange(this.value)">
       <option value="1">1 г.</option>
       <option value="3">3 г.</option>
-      <option value="5" selected>5 г.</option>
-      <option value="10">10 г.</option>
+      <option value="5">5 г.</option>
+      <option value="10" selected>10 г. (канон)</option>
     </select>
     <span id="last-update">—</span>
     <button class="refresh-btn" onclick="reloadData()" title="Презареди данните">↻ Обнови</button>
@@ -508,13 +522,17 @@ function lensOrderFor(ms) {
 /* ═══════════════════════════════════════════════════════════════════
    STATE
 ═══════════════════════════════════════════════════════════════════ */
+// O3/B4: каноничният прозорец = 10г (изравнен с api/briefing канона). При този
+// прозорец уеб-ът показва JSON-percentile-а директно (СЪЩОТО число като api/briefing).
+const CANON_YEARS = 10;
+
 let state = {
   region: 'US',
   activeLens: 'overview',
   macroState: null,
   seriesData: null,
   loading: false,
-  rangeYears: 5,
+  rangeYears: CANON_YEARS,   // default = 10г канон (беше 5г)
 };
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -870,10 +888,21 @@ function buildSeriesCard(id, s) {
   const meta = s.meta || {};
   const val = latest.value != null ? fmtValue(latest.value, meta) : '—';
   const yoy = latest.yoy_change;
-  // Percentile се пресмята върху ВИДИМИЯ прозорец (state.rangeYears), а не върху
-  // целия history. Така "Percentile 80%" означава "в горните 20% за последните N години".
-  const sliced = sliceChartToRange(s.chart, state.rangeYears);
-  const pct = percentileRank(sliced.values, latest.value);
+  // O3/B4: числото никога не сменя стойност мълчаливо.
+  //  • При КАНОНА (10г) показваме JSON latest.percentile — ТОЧНО api/briefing числото
+  //    (trailing-10г ранг върху трансформираната величина), НЕ клиентско преизчисление.
+  //  • При мръднат слайдер — изследователски прозорец, преизчислен върху видимите
+  //    точки, с ИЗРИЧЕН етикет „изследователски прозорец Xг".
+  const isCanon = state.rangeYears === CANON_YEARS;
+  let pct, pctLabel;
+  if (isCanon && latest.percentile != null && !isNaN(latest.percentile)) {
+    pct = latest.percentile;
+    pctLabel = (latest.percentile_window === 'пълна история') ? 'пълна история' : '10г канон';
+  } else {
+    const sliced = sliceChartToRange(s.chart, state.rangeYears);
+    pct = percentileRank(sliced.values, latest.value);
+    pctLabel = 'изследователски прозорец ' + state.rangeYears + 'г';
+  }
   const date = latest.date ? latest.date.substring(0, 7) : '';
   // Staleness: серия изостанала с месеци (флагната в series_data.json) НЕ се показва
   // като уверено текуща — амбър ⚠ с периодите назад вместо обикновена дата.
@@ -899,6 +928,7 @@ function buildSeriesCard(id, s) {
     pctHtml = `
       <div class="series-percentile">
         Percentile: <b style="color:${pctColor}">${pct.toFixed(0)}%</b>
+        <span class="pct-window">(${pctLabel})</span>
         <div class="pct-bar-track">
           <div class="pct-bar-fill" style="width:${pct}%; background:${pctColor}"></div>
         </div>
