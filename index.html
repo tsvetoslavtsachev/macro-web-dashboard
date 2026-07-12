@@ -61,6 +61,11 @@ nav {
   padding: 2px 9px; margin-right: 12px; white-space: nowrap;
   text-transform: uppercase; cursor: help;
 }
+/* ФОРМА-КАНОН §1 — hover-affordance за елементите с обяснение на място (title). */
+.section-title[title], .lens-card-name[title], .lens-card-dir[title], .lens-card-score[title],
+.lens-card-meta [title], .series-percentile[title], .series-change[title], .z-badge[title],
+.extreme-badge[title], .div-bar-label[title], #regime-badge[title],
+.anomaly-table th[title], #last-update { cursor: help; }
 .region-tabs { display: flex; gap: 4px; }
 .region-tab {
   background: none; border: 1px solid var(--border);
@@ -112,6 +117,12 @@ nav {
   display: none;
 }
 #regime-banner.visible { display: block; }
+/* „Изводът" kicker — рамкира банера като човешкия извод най-горе (ФОРМА-КАНОН §1, правило 1). */
+.regime-kicker {
+  font-size: 9.5px; font-weight: 700; letter-spacing: 0.6px;
+  text-transform: uppercase; color: var(--accent);
+  margin-bottom: 8px;
+}
 .regime-inner {
   display: flex; align-items: flex-start;
   gap: 14px; flex-wrap: wrap;
@@ -140,6 +151,21 @@ nav {
   color: var(--muted); padding: 2px 8px;
   border-radius: 12px; font-size: 10px;
 }
+
+/* ═══════════════════════════════════════════════
+   READING BAR (М25) — крос-линк към седмичното четиво (deep брифинга)
+═══════════════════════════════════════════════ */
+#reading-bar {
+  padding: 7px 20px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  font-size: 11px; color: var(--muted);
+  display: flex; align-items: center; gap: 8px;
+  flex-wrap: wrap; cursor: help;
+}
+#reading-bar a { color: var(--accent); text-decoration: none; font-weight: 600; }
+#reading-bar a:hover { text-decoration: underline; }
+#reading-bar .rb-text { color: var(--muted); }
 
 /* ═══════════════════════════════════════════════
    LENS NAVIGATION (tabs)
@@ -439,6 +465,7 @@ nav {
      REGIME BANNER
 ═══════════════════════════════════════════ -->
 <div id="regime-banner">
+  <div class="regime-kicker">Изводът за момента — какво значи всичко това</div>
   <div class="regime-inner">
     <div id="regime-badge" class="regime-badge regime-default">—</div>
     <div>
@@ -446,6 +473,13 @@ nav {
       <div id="regime-signals" class="regime-signals"></div>
     </div>
   </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     READING BAR (М25) — тази снимка е на живо; седмичното четиво = deep брифингът
+═══════════════════════════════════════════ -->
+<div id="reading-bar" title="Този дашборд е живата снимка (текущите стойности сега). Седмичното четиво е дълбокият брифинг за същия регион — разказ, контекст, история.">
+  <span class="rb-text">Седмичното четиво → брифингът</span>
 </div>
 
 <!-- ═══════════════════════════════════════════
@@ -498,6 +532,21 @@ const LENS_LABELS = {
   property:  'Имоти и търговия',
 };
 
+// Речник на жаргона — ползва се като native title tooltip на всяка метрика/секция
+// (ФОРМА-КАНОН §1, правило 3: обяснение на място). Без ASCII кавички → безопасно в title="".
+const TIP = {
+  breadth:    'Breadth (широчина) = какъв дял от индикаторите в лещата сочат в една посока (0-100%). ~70% = широк, съгласуван сигнал; ~50% = разнопосочно.',
+  percentile: 'Перцентил = къде е текущата стойност спрямо собствената си 10-годишна история (0-100). 90 = по-високо от 90% от последните 10 г.; червено = висок екстрем, зелено = нисък.',
+  zscore:     'Z-score = на колко стандартни отклонения от 10-годишната средна е стойността. +2 = необичайно високо, −2 = необичайно ниско; |z| ≥ 2 обикновено маркира аномалия.',
+  lens:       'Леща = тематична група индикатори (труд, инфлация, растеж…). Обобщава посоката и широчината на своята част от икономиката.',
+  direction:  'Посока на лещата: Разширяване = мнозинството индикатори се подобряват; Свиване = влошават се; Смесено = разнопосочно; Недостатъчно данни = твърде малко серии.',
+  anomaly:    'Аномалия = индикатор с |z-score| над прага спрямо 10-годишната си норма — необичайно за него ниво.',
+  extreme:    'Нов екстремум = индикаторът е на най-високата/ниската си стойност в наблюдавания прозорец.',
+  yoy:        'YoY (year-over-year) = промяна спрямо същия период преди 12 месеца.',
+  divergence: 'Дивергенция = две свързани лещи/индикатора се движат в противоположни посоки — сигнал за вътрешно напрежение в икономиката.',
+  regime:     'Режим = обобщаващата класификация на икономическия момент (напр. Разширяване, Стагфлация), синтез от всички лещи. Наблюдение, не прогноза.',
+};
+
 const LENS_ORDER_US = ['labor', 'inflation', 'growth', 'liquidity'];
 // EU backend разглоби мъртвата „ecb" леща → „external" (F-teardown 2026-06-05).
 const LENS_ORDER_EA = ['labor', 'growth', 'inflation', 'credit', 'external'];
@@ -506,6 +555,27 @@ const LENS_ORDER_EA = ['labor', 'growth', 'inflation', 'credit', 'external'];
 const LENS_ORDER_CN = ['growth', 'inflation', 'labor', 'credit', 'property'];
 
 const LENS_ORDER_BY_REGION = { US: LENS_ORDER_US, EA: LENS_ORDER_EA, CN: LENS_ORDER_CN };
+
+// М25 · крос-линк към седмичното четиво (deep брифинга) за текущия регион.
+// macro-web = живата снимка; брифингът = разказът. Единият html се сервира в
+// два контекста → два линка с етикети: локално (порт от launch.json) и публично
+// (GitHub Pages). Портовете: US 8773 · CN 8774 · EA 8775 (C:/Projects/.claude/launch.json).
+const REGION_BRIEFINGS = {
+  US: { label: 'САЩ',      local: 'http://localhost:8773', pages: 'https://tsvetoslavtsachev.github.io/us-macro-dashboard/' },
+  EA: { label: 'Еврозона', local: 'http://localhost:8775', pages: 'https://tsvetoslavtsachev.github.io/eu-macro-dashboard/' },
+  CN: { label: 'Китай',    local: 'http://localhost:8774', pages: 'https://tsvetoslavtsachev.github.io/china-macro-dashboard/' },
+};
+
+function updateReadingBar() {
+  const bar = document.getElementById('reading-bar');
+  if (!bar) return;
+  const b = REGION_BRIEFINGS[state.region];
+  if (!b) { bar.innerHTML = '<span class="rb-text">Седмичното четиво → брифингът</span>'; return; }
+  bar.innerHTML =
+    '<span class="rb-text">Седмичното четиво за ' + b.label + ' → брифингът:</span> '
+    + '<a href="' + b.local + '">локално</a> · '
+    + '<a href="' + b.pages + '" target="_blank" rel="noopener">публично</a>';
+}
 
 // S14 · lens contract — nav-ът следва ДАННИТЕ, не статичен списък. Подрежда по
 // предпочитания ред (LENS_ORDER_*), показва само лещи, които реално са в JSON-а,
@@ -605,6 +675,10 @@ function switchRegion(region) {
   state.activeLens = 'overview';
   document.querySelectorAll('.region-tab').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + region).classList.add('active');
+  // М25 · hash отразява активния регион → shareable deep-link (#US/#EA/#CN);
+  // replaceState не скролва и не трупа history записи.
+  history.replaceState(null, '', '#' + region);
+  updateReadingBar();
   reloadData();
 }
 
@@ -631,21 +705,32 @@ function showError(err) {
 // амбър), 2+ изпуснати (dead, червено). Отделна функция = тестваем seam.
 const STALE_WARN_DAYS = 9;
 const STALE_DEAD_DAYS = 16;
-function applyLastUpdate(generatedAt) {
+// As-of реда показва датата НА ДАННИТЕ (as_of_date от заредения JSON), не хардкод
+// и не времето на генериране на файла. generatedAt се показва само в tooltip-а.
+function applyLastUpdate(asOf, generatedAt) {
   const lu = document.getElementById('last-update');
-  const dt = new Date(generatedAt);
+  const dt = new Date(asOf);
   lu.classList.remove('stale-warn', 'stale-dead');
-  if (isNaN(dt.getTime())) { lu.textContent = 'Обновено: —'; return; }
+  if (isNaN(dt.getTime())) { lu.textContent = 'Данни към: —'; lu.title = ''; return; }
   const dateStr = dt.toLocaleDateString('bg-BG', { day:'2-digit', month:'short', year:'numeric' });
   const ageDays = Math.floor((Date.now() - dt.getTime()) / 86400000);
+  // Tooltip: разграничава as-of (датата на данните) от кога е генериран файлът.
+  let genStr = '';
+  if (generatedAt) {
+    const g = new Date(generatedAt);
+    if (!isNaN(g.getTime())) genStr = g.toLocaleString('bg-BG', { dateStyle:'medium', timeStyle:'short' });
+  }
+  lu.title = 'Данни към = датата на последното наблюдение в live-заредените данни (as-of).'
+    + (genStr ? ' Файлът е генериран ' + genStr + '.' : '')
+    + ' Цветът предупреждава при застояване (амбър > ' + STALE_WARN_DAYS + ' дни, червено > ' + STALE_DEAD_DAYS + ' дни).';
   if (ageDays > STALE_DEAD_DAYS) {
-    lu.textContent = 'Обновено: ' + dateStr + ' · ⚠ преди ' + ageDays + ' дни — застояло';
+    lu.textContent = 'Данни към: ' + dateStr + ' · ⚠ преди ' + ageDays + ' дни — застояло';
     lu.classList.add('stale-dead');
   } else if (ageDays > STALE_WARN_DAYS) {
-    lu.textContent = 'Обновено: ' + dateStr + ' · ⚠ преди ' + ageDays + ' дни';
+    lu.textContent = 'Данни към: ' + dateStr + ' · ⚠ преди ' + ageDays + ' дни';
     lu.classList.add('stale-warn');
   } else {
-    lu.textContent = 'Обновено: ' + dateStr;
+    lu.textContent = 'Данни към: ' + dateStr;
   }
 }
 
@@ -653,11 +738,15 @@ function buildUI() {
   const ms = state.macroState;
   const sd = state.seriesData;
 
-  // Last update — с age праг (S14)
-  applyLastUpdate(ms.generated_at);
+  // Last update — as-of датата НА ДАННИТЕ (as_of_date), fallback към generated_at;
+  // с age праг (S14). generated_at минава като tooltip context.
+  applyLastUpdate(ms.as_of_date || ms.generated_at, ms.generated_at);
 
   // Regime banner
   buildRegimeBanner(ms);
+
+  // М25 · крос-линк към седмичното четиво за текущия регион
+  updateReadingBar();
 
   // Lens nav
   buildLensNav(ms);
@@ -692,6 +781,7 @@ function buildRegimeBanner(ms) {
   const cssClass = cssMap[exec.regime_key] || 'regime-default';
   badge.className = 'regime-badge ' + cssClass;
   badge.textContent = exec.regime_label_bg || exec.regime_key;
+  badge.title = TIP.regime;
 
   narrative.textContent = exec.narrative || '';
 
@@ -767,7 +857,7 @@ function showLens(lens) {
 function buildOverview(ms, sd) {
   const lensOrder = lensOrderFor(ms);
   let html = '<div id="overview-section">';
-  html += '<div class="section-title">Лещи — Обзор</div>';
+  html += `<div class="section-title" title="${TIP.lens}">Лещи — Обзор</div>`;
   html += '<div class="overview-grid">';
 
   lensOrder.forEach(lens => {
@@ -785,14 +875,14 @@ function buildOverview(ms, sd) {
     html += `
       <div class="lens-card" onclick="showLens('${lens}')">
         <div class="lens-card-header">
-          <div class="lens-card-name">${label}</div>
-          <div class="lens-card-dir dir-${dir}">${dirLabel}</div>
+          <div class="lens-card-name" title="${TIP.lens}">${label}</div>
+          <div class="lens-card-dir dir-${dir}" title="${TIP.direction}">${dirLabel}</div>
         </div>
-        <div class="lens-card-score">${score}<span>%</span></div>
+        <div class="lens-card-score" title="${TIP.breadth}">${score}<span>%</span></div>
         <div class="lens-card-meta">
-          Breadth: ${score}% &nbsp;|&nbsp;
-          ${anoms > 0 ? `<b>${anoms} аномалии</b>` : 'Без аномалии'}
-          ${extremes > 0 ? ` · <b>${extremes} нови екстремума</b>` : ''}
+          <span title="${TIP.breadth}">Breadth: ${score}%</span> &nbsp;|&nbsp;
+          ${anoms > 0 ? `<b title="${TIP.anomaly}">${anoms} аномалии</b>` : 'Без аномалии'}
+          ${extremes > 0 ? ` · <b title="${TIP.extreme}">${extremes} нови екстремума</b>` : ''}
         </div>
       </div>
     `;
@@ -803,7 +893,7 @@ function buildOverview(ms, sd) {
   // Top anomalies preview
   if (ms.top_anomalies?.length) {
     html += '<div class="lens-section">';
-    html += '<div class="section-title">Топ аномалии</div>';
+    html += `<div class="section-title" title="${TIP.anomaly}">Топ аномалии</div>`;
     html += buildAnomaliesTable(ms.top_anomalies.slice(0, 5));
     html += '</div>';
   }
@@ -811,7 +901,7 @@ function buildOverview(ms, sd) {
   // Cross-lens divergences preview
   if (ms.cross_lens_divergences?.length) {
     html += '<div class="lens-section">';
-    html += '<div class="section-title">Cross-lens дивергенции</div>';
+    html += `<div class="section-title" title="${TIP.divergence}">Cross-lens дивергенции</div>`;
     html += buildDivergenceCards(ms.cross_lens_divergences);
     html += '</div>';
   }
@@ -835,16 +925,16 @@ function buildLensSection(lens, ms, sd) {
   let html = `
     <div class="lens-section">
       <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap;">
-        <div style="font-size:22px; font-weight:700;">${label}</div>
-        <div class="lens-card-dir dir-${dir}">${dirLabel}</div>
-        <div style="font-size:13px; color:var(--muted);">Breadth: <b style="color:var(--text)">${score}%</b></div>
-        ${ldata.anomalies_count > 0 ? `<div style="font-size:12px; color:var(--yellow);">${ldata.anomalies_count} аномалии</div>` : ''}
+        <div style="font-size:22px; font-weight:700;" title="${TIP.lens}">${label}</div>
+        <div class="lens-card-dir dir-${dir}" title="${TIP.direction}">${dirLabel}</div>
+        <div style="font-size:13px; color:var(--muted);" title="${TIP.breadth}">Breadth: <b style="color:var(--text)">${score}%</b></div>
+        ${ldata.anomalies_count > 0 ? `<div style="font-size:12px; color:var(--yellow);" title="${TIP.anomaly}">${ldata.anomalies_count} аномалии</div>` : ''}
       </div>
   `;
 
   // Intra-lens divergences
   if (ldata.intra_divergences?.length) {
-    html += '<div class="section-title">Вътрешни дивергенции</div>';
+    html += `<div class="section-title" title="${TIP.divergence}">Вътрешни дивергенции</div>`;
     html += buildDivergenceCards(ldata.intra_divergences);
     html += '<br>';
   }
@@ -855,7 +945,7 @@ function buildLensSection(lens, ms, sd) {
     return aLens.includes(lens);
   });
   if (lensAnoms.length) {
-    html += '<div class="section-title">Аномалии в тази леща</div>';
+    html += `<div class="section-title" title="${TIP.anomaly}">Аномалии в тази леща</div>`;
     html += buildAnomaliesTable(lensAnoms);
     html += '<br>';
   }
@@ -868,7 +958,7 @@ function buildLensSection(lens, ms, sd) {
     });
 
   if (lensSeries.length) {
-    html += '<div class="section-title">Индикатори</div>';
+    html += `<div class="section-title" title="Отделните времеви редове в тази леща. Всяка карта: последна стойност, YoY промяна и 10-годишен перцентил.">Индикатори</div>`;
     html += '<div class="series-grid" id="series-grid-' + lens + '">';
     lensSeries.forEach(([id, s]) => {
       html += buildSeriesCard(id, s);
@@ -919,14 +1009,14 @@ function buildSeriesCard(id, s) {
       ? (yoy > 0 ? 'chg-up' : 'chg-down')
       : (yoy > 0 ? 'chg-up' : 'chg-down');
     const unit = meta.change_kind === 'bps' ? ' bps' : (meta.change_kind === 'absolute' ? '' : '%');
-    chgHtml = `<span class="series-change ${cls}">${sign}${yoy.toFixed(1)}${unit} YoY</span>`;
+    chgHtml = `<span class="series-change ${cls}" title="${TIP.yoy}">${sign}${yoy.toFixed(1)}${unit} YoY</span>`;
   }
 
   let pctHtml = '';
   if (pct != null && !isNaN(pct)) {
     const pctColor = pct > 80 ? '#f85149' : pct < 20 ? '#3fb950' : '#58a6ff';
     pctHtml = `
-      <div class="series-percentile">
+      <div class="series-percentile" title="${TIP.percentile}">
         Percentile: <b style="color:${pctColor}">${pct.toFixed(0)}%</b>
         <span class="pct-window">(${pctLabel})</span>
         <div class="pct-bar-track">
@@ -1027,7 +1117,7 @@ function renderLensCharts(lens, sd) {
 ═══════════════════════════════════════════════════════════════════ */
 function buildAnomaliesSection(ms) {
   let html = '<div class="lens-section">';
-  html += '<div class="section-title">Всички аномалии</div>';
+  html += `<div class="section-title" title="${TIP.anomaly}">Всички аномалии</div>`;
   if (!ms.top_anomalies?.length) {
     html += '<div style="color:var(--muted); padding:20px 0;">Няма аномалии.</div>';
   } else {
@@ -1042,12 +1132,12 @@ function buildAnomaliesTable(anomalies) {
     <table class="anomaly-table">
       <thead>
         <tr>
-          <th>Индикатор</th>
-          <th>Леща</th>
-          <th>Z-score</th>
-          <th>Стойност</th>
-          <th>Дата</th>
-          <th>Narrative</th>
+          <th title="Икономическият времеви ред (индикатор) и неговият код.">Индикатор</th>
+          <th title="${TIP.lens}">Леща</th>
+          <th title="${TIP.zscore}">Z-score</th>
+          <th title="Последната наблюдавана стойност на индикатора.">Стойност</th>
+          <th title="Дата на последното наблюдение.">Дата</th>
+          <th title="Кратко човешко обяснение защо това ниво е необичайно.">Narrative</th>
         </tr>
       </thead>
       <tbody>
@@ -1059,13 +1149,13 @@ function buildAnomaliesTable(anomalies) {
     const val = a.current_value != null ? a.current_value.toFixed(3) : '—';
     const lens = Array.isArray(a.lens) ? a.lens.join(', ') : (a.lens || '—');
     const extremeBadge = a.is_new_extreme
-      ? `<span class="extreme-badge">Нов екстремум</span>` : '';
+      ? `<span class="extreme-badge" title="${TIP.extreme}">Нов екстремум</span>` : '';
     html += `
       <tr>
         <td><b>${a.name_bg || a.series_id}</b>${extremeBadge}<br>
             <small style="color:var(--muted)">${a.series_id}</small></td>
         <td style="color:var(--muted)">${lens}</td>
-        <td><span class="z-badge ${zCls}">${sign}${z}</span></td>
+        <td><span class="z-badge ${zCls}" title="${TIP.zscore}">${sign}${z}</span></td>
         <td>${val}</td>
         <td style="color:var(--muted)">${a.last_date || '—'}</td>
         <td style="color:var(--muted); font-size:11px; max-width:200px">${a.narrative_hint || ''}</td>
@@ -1081,7 +1171,7 @@ function buildAnomaliesTable(anomalies) {
 ═══════════════════════════════════════════════════════════════════ */
 function buildDivergencesSection(ms) {
   let html = '<div class="lens-section">';
-  html += '<div class="section-title">Cross-lens дивергенции</div>';
+  html += `<div class="section-title" title="${TIP.divergence}">Cross-lens дивергенции</div>`;
   html += buildDivergenceCards(ms.cross_lens_divergences || []);
   html += '</div>';
   return html;
@@ -1116,13 +1206,13 @@ function buildDivergenceCards(divs) {
         <div class="div-card-interp">${d.interpretation || ''}</div>
         <div class="div-bars">
           <div class="div-bar-wrap">
-            <div class="div-bar-label">${d.slot_a_label || 'A'}: ${labelA}</div>
+            <div class="div-bar-label" title="${TIP.breadth}">${d.slot_a_label || 'A'}: ${labelA}</div>
             <div class="div-bar-track">
               <div class="div-bar-fill" style="width:${bA}%; background:${barColorA}"></div>
             </div>
           </div>
           <div class="div-bar-wrap">
-            <div class="div-bar-label">${d.slot_b_label || 'B'}: ${labelB}</div>
+            <div class="div-bar-label" title="${TIP.breadth}">${d.slot_b_label || 'B'}: ${labelB}</div>
             <div class="div-bar-track">
               <div class="div-bar-fill" style="width:${bB}%; background:${barColorB}"></div>
             </div>
@@ -1138,6 +1228,18 @@ function buildDivergenceCards(divs) {
 /* ═══════════════════════════════════════════════════════════════════
    INIT
 ═══════════════════════════════════════════════════════════════════ */
+// М25 · deep-link: отвори директния регионен таб от URL hash (#US / #EA / #CN),
+// за да може брифингът да сочи „Живата снимка → Макро web" право в своя регион.
+(function initRegionFromHash() {
+  const h = (location.hash || '').replace('#', '').toUpperCase();
+  if (h === 'US' || h === 'EA' || h === 'CN') {
+    state.region = h;
+    document.querySelectorAll('.region-tab').forEach(b => b.classList.remove('active'));
+    const tab = document.getElementById('tab-' + h);
+    if (tab) tab.classList.add('active');
+  }
+})();
+updateReadingBar();
 reloadData();
 </script>
 </body>
